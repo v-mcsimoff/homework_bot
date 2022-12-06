@@ -54,6 +54,8 @@ def get_api_answer(timestamp):
         homework_statuses = requests.get(
             ENDPOINT, headers=headers, params=payload
         )
+        if homework_statuses.status_code != HTTPStatus.OK:
+            raise exceptions.GetAPIException('Статус запроса не 200')
     except requests.exceptions.RequestException as error:
         logging.error(f'Сервер вернул ошибку: {error}')
         send_message(f'Сервер вернул ошибку: {error}')
@@ -62,12 +64,6 @@ def get_api_answer(timestamp):
     except json.JSONDecodeError:
         logging.error('Сервер вернул невалидный json')
         send_message('Сервер вернул невалидный json')
-    if homework_statuses.status_code != HTTPStatus.OK:
-        homework_statuses.raise_for_status()
-        error_message = 'Сбой в работе, неверный статус ответ'
-        logging.error(error_message)
-        raise exceptions.GetAPIException(error_message)
-    return homework_statuses.json()
 
 
 def check_response(response):
