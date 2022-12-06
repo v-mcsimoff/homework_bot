@@ -1,12 +1,14 @@
 import logging
 import os
 import json
+import sys
 
 import requests
 import time
 import telegram
 
 from dotenv import load_dotenv
+from http import HTTPStatus
 
 import exceptions
 
@@ -37,7 +39,11 @@ def check_tokens():
 
 def send_message(bot, message):
     """отправляет сообщение в Telegram чат."""
-    return bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
+    try:
+        bot.send_message(TELEGRAM_CHAT_ID, message)
+    except telegram.error.TelegramError as error:
+        error_message = f'Ошибка при отправке сообщения: {error}'
+        raise exceptions.SendMessageException(error_message)
 
 
 def get_api_answer(timestamp):
@@ -56,6 +62,12 @@ def get_api_answer(timestamp):
     except json.JSONDecodeError:
         logging.error('Сервер вернул невалидный json')
         send_message('Сервер вернул невалидный json')
+    if homework_statuses.status_code != HTTPStatus.OK:
+        homework_statuses.raise_for_status()
+        error_message = 'Сбой в работе, неверный статус ответ'
+        logging.error(error_message)
+        raise exceptions.GetAPIException(error_message)
+    return homework_statuses.json()
 
 
 def check_response(response):
@@ -83,32 +95,35 @@ def check_response(response):
 
 def parse_status(homework):
     """извлекает статус домашней работы."""
-    status = homework.get('status')
-    homework_name = homework.get('homework_name')
-
-    if status is None or homework_name is None:
-        logging.error(
-            f'Отсутствует статус или имя работы в ответе {homework}'
-        )
-        return f'В ответе сервера отсутствует статус или имя работы:\
-            статус: {status}, имя работы: {homework_name}'
-
-    verdict = HOMEWORK_VERDICTS.get(status)
-    if verdict is not None:
-        return f'Изменился статус работы "{homework_name}"!\n\n{verdict}'
-    else:
-        logging.error(
-            f'Ошибка статуса: {status} не входит в {HOMEWORK_VERDICTS.keys()}'
-        )
-
-    return (f'Бот не узнаёт статус {status} вашей работы.')
+    try:
+        homework_name = homework['homework_name']
+    except KeyError as error:
+        error_message = f'В словаре нет ключа homework_name {error}'
+        logging.error(error_message)
+        raise KeyError(error_message)
+    try:
+        homework_status = homework['status']
+    except KeyError as error:
+        error_message = f'В словаре нет ключа status {error}'
+        logging.error(error_message)
+        raise KeyError(error_message)
+    verdict = HOMEWORK_VERDICTS[homework_status]
+    if verdict is None:
+        error_message = 'Отсутствует сообщение о статусе проверки'
+        logging.error(error_message)
+        raise exceptions.StatusException(error_message)
+    return f'Изменился статус проверки работы "{homework_name}". {verdict}'
 
 
 def main():
     """Основная логика работы бота."""
     logging.basicConfig(
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-        level=logging.DEBUG
+        level=logging.DEBUG,
+        handlers=[
+            logging.FileHandler('program.log'),
+            logging.StreamHandler(sys.stdout)
+        ],
     )
 
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
