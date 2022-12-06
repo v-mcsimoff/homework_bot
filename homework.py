@@ -31,20 +31,17 @@ HOMEWORK_VERDICTS = {
 
 
 def check_tokens():
-    """проверяет доступность переменных окружения"""
-
+    """проверяет доступность переменных окружения."""
     return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
 def send_message(bot, message):
-    """отправляет сообщение в Telegram чат"""
-
+    """отправляет сообщение в Telegram чат."""
     return bot.send_message(chat_id=TELEGRAM_CHAT_ID, text=message)
 
 
 def get_api_answer(timestamp):
-    """делает запрос к единственному эндпоинту API-сервиса"""
-
+    """делает запрос к единственному эндпоинту API-сервиса."""
     headers = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
     payload = {'from_date': timestamp}
     try:
@@ -62,8 +59,7 @@ def get_api_answer(timestamp):
 
 
 def check_response(response):
-    """проверяет ответ API на соответствие документации"""
-
+    """проверяет ответ API на соответствие документации."""
     try:
         homework_list = response['homeworks']
     except KeyError as error:
@@ -86,8 +82,7 @@ def check_response(response):
 
 
 def parse_status(homework):
-    """извлекает статус домашней работы"""
-
+    """извлекает статус домашней работы."""
     status = homework.get('status')
     homework_name = homework.get('homework_name')
 
