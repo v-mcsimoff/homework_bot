@@ -32,6 +32,14 @@ HOMEWORK_VERDICTS = {
 }
 
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    filename='main.log',
+    format='%(funcName)s, %(lineno)s, %(levelname)s, %(message)s',
+    filemode='w'
+)
+
+
 def check_tokens():
     """проверяет доступность переменных окружения."""
     return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
@@ -41,8 +49,10 @@ def send_message(bot, message):
     """отправляет сообщение в Telegram чат."""
     try:
         bot.send_message(TELEGRAM_CHAT_ID, message)
+        logging.debug('Сообщение отправлено')
     except telegram.error.TelegramError as error:
         error_message = f'Ошибка при отправке сообщения: {error}'
+        logging.error(f"Ошибка {error_message}")
         raise exceptions.SendMessageException(error_message)
 
 
@@ -107,30 +117,22 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
-    timestamp = int(time.time())
-    status = ''
-    error_message = ''
-    if not check_tokens():
-        logging.critical('Отсутствуют одна или несколько переменных окружения')
+    if check_tokens() is False:
+        logging.critical("Отсутствие обязательных переменных окружения")
         sys.exit()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
+    timestamp = int(time.time())
     while True:
         try:
             response = get_api_answer(timestamp)
-            timestamp = response.get('current_date')
-            message = parse_status(check_response(response))
-            if message != status:
-                logging.info(f'Сообщение в чат {TELEGRAM_CHAT_ID}: {message}')
-                send_message(bot, message)
-                status = message
-        except telegram.error.TelegramError as error:
-            logging.error(error)
+            homeworks = check_response(response)
+            status = parse_status(homeworks[0])
+            send_message(bot, status)
+            timestamp = response["current_date"]
+
         except Exception as error:
-            logging.error(error)
-            message_t = str(error)
-            if message_t != error_message:
-                send_message(bot, message_t)
-                error_message = message_t
+            message = f"Сбой в работе программы: {error}"
+            logging.error(f"Бот столкнулся с ошибкой {message}")
         finally:
             time.sleep(RETRY_PERIOD)
 
