@@ -26,3 +26,9 @@ class VariableException(Exception):
     """Исключение для проверки наличия переменных окружения."""
 
     pass
+
+
+class RequestException(Exception):
+    """Исключение для проверки запроса."""
+
+    pass

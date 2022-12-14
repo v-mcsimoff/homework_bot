@@ -32,14 +32,6 @@ HOMEWORK_VERDICTS = {
 }
 
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    filename='main.log',
-    format='%(funcName)s, %(lineno)s, %(levelname)s, %(message)s',
-    filemode='w'
-)
-
-
 def check_tokens():
     """проверяет доступность переменных окружения."""
     return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
@@ -48,11 +40,13 @@ def check_tokens():
 def send_message(bot, message):
     """отправляет сообщение в Telegram чат."""
     try:
+        logging.info('Отправляем сообщение')
         bot.send_message(TELEGRAM_CHAT_ID, message)
         logging.debug('Сообщение отправлено')
     except telegram.error.TelegramError as error:
         error_message = f'Ошибка при отправке сообщения: {error}'
         logging.error(f"Ошибка {error_message}")
+        # переписали тесты и без этого логгирования они не проходят :(
         raise exceptions.SendMessageException(error_message)
 
 
@@ -66,37 +60,30 @@ def get_api_answer(timestamp):
         )
         if homework_statuses.status_code != HTTPStatus.OK:
             raise exceptions.GetAPIException('Статус запроса не 200')
-    except requests.exceptions.RequestException as error:
-        logging.error(f'Сервер вернул ошибку: {error}')
+    except requests.RequestException as error:
         send_message(f'Сервер вернул ошибку: {error}')
     try:
         return homework_statuses.json()
     except json.JSONDecodeError:
-        logging.error('Сервер вернул невалидный json')
         send_message('Сервер вернул невалидный json')
 
 
 def check_response(response):
     """проверяет ответ API на соответствие документации."""
-    try:
-        homework_list = response['homeworks']
-    except KeyError as error:
-        error_message = f'В словаре нет ключа homeworks {error}'
-        logging.error(error_message)
-        raise KeyError(error_message)
-    if not homework_list:
-        error_message = 'В ответе API нет списка домашек'
-        logging.error(error_message)
-        raise exceptions.APIResponseException(error_message)
-    if len(homework_list) == 0:
-        error_message = 'Вы ничего не отправляли на ревью'
-        logging.error(error_message)
-        raise exceptions.APIResponseException(error_message)
-    if not isinstance(homework_list, list):
-        error_message = 'В ответе API домашки выводятся не списком'
-        logging.error(error_message)
-        raise TypeError(error_message)
-    return homework_list
+    if not isinstance(response, dict):
+        raise TypeError('Ответ от API не является словарём')
+
+    if 'homeworks' not in response:
+        raise KeyError(f'Ключ "homeworks" не найден в {response}')
+
+    if not isinstance(response['homeworks'], list):
+        raise TypeError('В ключе "homeworks" нет списка')
+
+    homeworks = response.get('homeworks')
+    if not homeworks:
+        raise KeyError('В ключе "homeworks" нет значений')
+
+    return homeworks
 
 
 def parse_status(homework):
@@ -117,25 +104,53 @@ def parse_status(homework):
 
 def main():
     """Основная логика работы бота."""
-    if check_tokens() is False:
+    if not check_tokens():
         logging.critical("Отсутствие обязательных переменных окружения")
         sys.exit()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
+
+    error_message = ''
+
     while True:
         try:
             response = get_api_answer(timestamp)
             homeworks = check_response(response)
-            status = parse_status(homeworks[0])
-            send_message(bot, status)
-            timestamp = response["current_date"]
+            if homeworks:
+                message = parse_status(homeworks[0])
+                send_message(bot, message)
+            else:
+                message = 'Статус домашки не изменился'
+                send_message(bot, message)
+            if message != error_message:
+                send_message(bot, message)
+                error_message = message
+            else:
+                logging.info('Статус не изменился')
 
+        except ConnectionError:
+            pass
         except Exception as error:
-            message = f"Сбой в работе программы: {error}"
-            logging.error(f"Бот столкнулся с ошибкой {message}")
+            error_message = error
+            logging.error(f"Бот столкнулся с ошибкой {error_message}")
+        except telegram.error.TelegramError as error:
+            error_message = error
+            logging.error(f"Ошибка {error_message}")
+        except requests.RequestException as error:
+            error_message = error
+            logging.error(f'Сервер вернул ошибку: {error_message}')
+        except json.JSONDecodeError:
+            logging.error('Сервер вернул невалидный json')
         finally:
             time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        level=logging.DEBUG,
+        filename='main.log',
+        format='%(funcName)s, %(lineno)s, %(levelname)s, %(message)s',
+        handlers=[logging.FileHandler('main.log', 'w', encoding='utf-8'),
+                  logging.StreamHandler(sys.stdout)]
+    )
     main()
