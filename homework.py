@@ -32,15 +32,6 @@ HOMEWORK_VERDICTS = {
 }
 
 
-logging.basicConfig(
-    level=logging.DEBUG,
-    filename='main.log',
-    format='%(funcName)s, %(lineno)s, %(levelname)s, %(message)s',
-    handlers=[logging.FileHandler('main.log', 'w', encoding='utf-8'),
-              logging.StreamHandler(sys.stdout)]
-    )
-
-
 def check_tokens():
     """проверяет доступность переменных окружения."""
     return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
@@ -143,17 +134,16 @@ def main():
         except Exception as error:
             error_message = error
             logging.error(f"Бот столкнулся с ошибкой {error_message}")
-        except telegram.error.TelegramError as error:
-            error_message = error
-            logging.error(f"Ошибка {error_message}")
-        except requests.RequestException as error:
-            error_message = error
-            logging.error(f'Сервер вернул ошибку: {error_message}')
-        except json.JSONDecodeError:
-            logging.error('Сервер вернул невалидный json')
         finally:
             time.sleep(RETRY_PERIOD)
 
 
 if __name__ == '__main__':
+    logging.basicConfig(
+        level=logging.DEBUG,
+        filename='main.log',
+        format='%(funcName)s, %(lineno)s, %(levelname)s, %(message)s',
+        handlers=[logging.FileHandler('main.log', 'w', encoding='utf-8'),
+                  logging.StreamHandler(sys.stdout)]
+        )
     main()
