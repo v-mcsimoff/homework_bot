@@ -32,6 +32,15 @@ HOMEWORK_VERDICTS = {
 }
 
 
+logging.basicConfig(
+    level=logging.DEBUG,
+    filename='main.log',
+    format='%(funcName)s, %(lineno)s, %(levelname)s, %(message)s',
+    handlers=[logging.FileHandler('main.log', 'w', encoding='utf-8'),
+              logging.StreamHandler(sys.stdout)]
+    )
+
+
 def check_tokens():
     """проверяет доступность переменных окружения."""
     return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
@@ -47,6 +56,7 @@ def send_message(bot, message):
         error_message = f'Ошибка при отправке сообщения: {error}'
         logging.error(f"Ошибка {error_message}")
         # переписали тесты и без этого логгирования они не проходят :(
+        # но надеюсь, что принцип я правильно понял
         raise exceptions.SendMessageException(error_message)
 
 
@@ -146,11 +156,4 @@ def main():
 
 
 if __name__ == '__main__':
-    logging.basicConfig(
-        level=logging.DEBUG,
-        filename='main.log',
-        format='%(funcName)s, %(lineno)s, %(levelname)s, %(message)s',
-        handlers=[logging.FileHandler('main.log', 'w', encoding='utf-8'),
-                  logging.StreamHandler(sys.stdout)]
-    )
     main()
