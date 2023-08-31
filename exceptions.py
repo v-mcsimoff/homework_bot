@@ -1,34 +1,34 @@
 class APIResponseException(Exception):
-    """Исключение для проверки ответа API на корректность."""
+    """Exception to check API response for correctness."""
 
     pass
 
 
 class StatusException(Exception):
-    """Исключение для проверки статуса в ответе API."""
+    """Exception to check the status in the API response."""
 
     pass
 
 
 class GetAPIException(Exception):
-    """Исключение для проверки запроса к API."""
+    """Exception to check the API request."""
 
     pass
 
 
 class SendMessageException(Exception):
-    """Исключение для проверки отправки сообщений."""
+    """Exception to check message sending."""
 
     pass
 
 
 class VariableException(Exception):
-    """Исключение для проверки наличия переменных окружения."""
+    """Exception to check for environment variables."""
 
     pass
 
 
 class RequestException(Exception):
-    """Исключение для проверки запроса."""
+    """Exception to check the request."""
 
     pass
