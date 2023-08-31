@@ -1,4 +1,4 @@
-### Telegram-bot
+### Homework Telegram bot
 
 ```
 Telegram bot for tracking the status of homework checking on Yandex.Praktikum.
