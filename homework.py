@@ -26,33 +26,31 @@ HEADERS = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
 
 
 HOMEWORK_VERDICTS = {
-    'approved': 'Работа проверена: ревьюеру всё понравилось. Ура!',
-    'reviewing': 'Работа взята на проверку ревьюером.',
-    'rejected': 'Работа проверена: у ревьюера есть замечания.'
+    'approved': 'Work checked: the reviewer liked everything. Yay!',
+    'reviewing': 'Review has been started by the reviewer.',
+    'rejected': 'Work checked: the reviewer has comments.'
 }
 
 
 def check_tokens():
-    """проверяет доступность переменных окружения."""
+    """Checks if environment variables are available."""
     return all([PRACTICUM_TOKEN, TELEGRAM_TOKEN, TELEGRAM_CHAT_ID])
 
 
 def send_message(bot, message):
-    """отправляет сообщение в Telegram чат."""
+    """Sends a message to the Telegram chat."""
     try:
-        logging.info('Отправляем сообщение')
+        logging.info('Sending the message')
         bot.send_message(TELEGRAM_CHAT_ID, message)
-        logging.debug('Сообщение отправлено')
+        logging.debug('The message has been sent')
     except telegram.error.TelegramError as error:
-        error_message = f'Ошибка при отправке сообщения: {error}'
-        logging.error(f"Ошибка {error_message}")
-        # переписали тесты и без этого логгирования они не проходят :(
-        # но надеюсь, что принцип я правильно понял
+        error_message = f'Error while sending the message: {error}'
+        logging.error(f"Error {error_message}")
         raise exceptions.SendMessageException(error_message)
 
 
 def get_api_answer(timestamp):
-    """делает запрос к единственному эндпоинту API-сервиса."""
+    """Makes a request to a single endpoint of the API service."""
     headers = {'Authorization': f'OAuth {PRACTICUM_TOKEN}'}
     payload = {'from_date': timestamp}
     try:
@@ -60,53 +58,53 @@ def get_api_answer(timestamp):
             ENDPOINT, headers=headers, params=payload
         )
         if homework_statuses.status_code != HTTPStatus.OK:
-            raise exceptions.GetAPIException('Статус запроса не 200')
+            raise exceptions.GetAPIException('Request status is not 200')
     except requests.RequestException as error:
-        send_message(f'Сервер вернул ошибку: {error}')
+        send_message(f'The server returned the error: {error}')
     try:
         return homework_statuses.json()
     except json.JSONDecodeError:
-        send_message('Сервер вернул невалидный json')
+        send_message('The server returned invalid json')
 
 
 def check_response(response):
-    """проверяет ответ API на соответствие документации."""
+    """Checks the API response for compliance with the documentation."""
     if not isinstance(response, dict):
-        raise TypeError('Ответ от API не является словарём')
+        raise TypeError('The response from API is not a dictionary')
 
     if 'homeworks' not in response:
-        raise KeyError(f'Ключ "homeworks" не найден в {response}')
+        raise KeyError(f'The key "homeworks" has not been found in {response}')
 
     if not isinstance(response['homeworks'], list):
-        raise TypeError('В ключе "homeworks" нет списка')
+        raise TypeError('There's no list in the "homeworks" key')
 
     homeworks = response.get('homeworks')
     if not homeworks:
-        raise KeyError('В ключе "homeworks" нет значений')
+        raise KeyError('There are no values in the "homeworks" key')
 
     return homeworks
 
 
 def parse_status(homework):
-    """извлекает статус домашней работы."""
+    """Retrieves the status of homework."""
     if 'homework_name' not in homework:
-        raise KeyError('Отсутсвует ключ "homework_name" в ответе API')
+        raise KeyError('Missing "homework_name" key in API response')
     if 'status' not in homework:
-        raise KeyError('Отсутсвует ключ "status" в ответе API')
+        raise KeyError('Missing "status" key in API response')
     homework_name = homework['homework_name']
     homework_status = homework['status']
     if homework_status not in HOMEWORK_VERDICTS:
         raise exceptions.StatusException(
-            f'Неизвестный статус работы: {homework_status}'
+            f'Unknown operation status: {homework_status}'
         )
     verdict = HOMEWORK_VERDICTS[homework_status]
-    return f'Изменился статус проверки работы "{homework_name}". {verdict}'
+    return f'The status of the work "{homework_name}" review has changed. {verdict}'
 
 
 def main():
-    """Основная логика работы бота."""
+    """General logic of the bot's operation."""
     if not check_tokens():
-        logging.critical("Отсутствие обязательных переменных окружения")
+        logging.critical("Lack of mandatory environment variables")
         sys.exit()
     bot = telegram.Bot(token=TELEGRAM_TOKEN)
     timestamp = int(time.time())
@@ -121,19 +119,19 @@ def main():
                 message = parse_status(homeworks[0])
                 send_message(bot, message)
             else:
-                message = 'Статус домашки не изменился'
+                message = 'No change in the status of the homework'
                 send_message(bot, message)
             if message != error_message:
                 send_message(bot, message)
                 error_message = message
             else:
-                logging.info('Статус не изменился')
+                logging.info('No change in status')
 
         except ConnectionError:
             pass
         except Exception as error:
             error_message = error
-            logging.error(f"Бот столкнулся с ошибкой {error_message}")
+            logging.error(f"The bot faced an error {error_message}")
         finally:
             time.sleep(RETRY_PERIOD)
 
